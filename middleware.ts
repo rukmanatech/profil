@@ -4,12 +4,12 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const session = request.cookies.get('session');
 
-  // Jika user mencoba mengakses halaman admin tanpa session, redirect ke login
+  // Jika mencoba mengakses halaman admin tanpa session
   if (!session?.value && request.nextUrl.pathname.startsWith('/admin')) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Jika user sudah login dan mencoba mengakses halaman login, redirect ke admin
+  // Jika sudah ada session dan mencoba mengakses login
   if (session?.value && request.nextUrl.pathname === '/login') {
     return NextResponse.redirect(new URL('/admin', request.url));
   }
