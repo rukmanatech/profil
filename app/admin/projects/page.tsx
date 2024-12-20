@@ -136,11 +136,13 @@ export default function ProjectsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [projectsLoading, setProjectsLoading] = useState(true);
   const [newProject, setNewProject] = useState<Partial<Project>>({
     title: '',
     description: '',
@@ -171,6 +173,7 @@ export default function ProjectsPage() {
 
   const fetchProjects = async () => {
     try {
+      setProjectsLoading(true);
       const projectsSnapshot = await getDocs(collection(db, 'projects'));
       const projectsData = projectsSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -187,6 +190,8 @@ export default function ProjectsPage() {
           message="Terjadi kesalahan saat memuat projects"
         />
       ));
+    } finally {
+      setProjectsLoading(false);
     }
   };
 
@@ -591,11 +596,36 @@ export default function ProjectsPage() {
     }
   };
 
+  // Fungsi untuk memfilter projects berdasarkan pencarian
+  const filteredProjects = projects.filter(project => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      project.title.toLowerCase().includes(searchLower) ||
+      project.description.toLowerCase().includes(searchLower) ||
+      project.technologies.some(tech => tech.toLowerCase().includes(searchLower))
+    );
+  });
+
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-      </div>
+      <AnimatedBackground>
+        <div className="min-h-screen flex flex-col items-center justify-center">
+          <div className="relative w-24 h-24">
+            {/* Outer ring */}
+            <div className="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
+            
+            {/* Spinning gradient ring */}
+            <div className="absolute inset-0 border-4 border-transparent border-t-indigo-600 rounded-full animate-spin"></div>
+            
+            {/* Inner gradient circles */}
+            <div className="absolute inset-4 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full opacity-20 animate-pulse"></div>
+            <div className="absolute inset-6 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full opacity-40 animate-pulse delay-150"></div>
+          </div>
+          <p className="mt-8 text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 font-medium animate-pulse">
+            Loading...
+          </p>
+        </div>
+      </AnimatedBackground>
     );
   }
 
@@ -612,45 +642,107 @@ export default function ProjectsPage() {
           }}
         />
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
+        {/* Header Section */}
+        <div className="space-y-6 mb-8">
+          {/* Back Button and Title */}
+          <div className="flex items-center gap-3">
             <Link 
               href="/admin"
-              className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="p-2 text-gray-600 hover:text-gray-900 transition-colors bg-white/50 backdrop-blur-sm rounded-full hover:bg-white/80"
             >
-              <FiArrowLeft size={24} />
+              <FiArrowLeft size={20} />
             </Link>
-            <h1 className="text-2xl sm:text-3xl font-medium text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
-              Projects
-            </h1>
+            <div className="flex flex-col">
+              <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 animate-gradient-x">
+                My Projects
+              </h1>
+              <p className="text-sm text-gray-500">Kelola semua project dalam satu tempat</p>
+            </div>
           </div>
-          <button
-            onClick={() => {
-              setShowAddModal(true);
-              setEditingProject(null);
-              setNewProject({
-                title: '',
-                description: '',
-                imageUrl: '',
-                link: '',
-                technologies: [],
-                featured: false,
-                isNewRelease: false,
-                isUpdate: false
-              });
-            }}
-            className="text-sm px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md flex items-center gap-2"
-          >
-            <FiPlus size={16} />
-            <span>Add Project</span>
-          </button>
+
+          {/* Search and Add Section */}
+          <div className="flex items-center gap-4">
+            {/* Search Bar */}
+            <div className="flex-1">
+              <div className="relative group">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari project berdasarkan judul, deskripsi, atau teknologi..."
+                  className="w-full pl-12 pr-12 py-2.5 text-sm text-gray-900 bg-white/80 backdrop-blur-xl rounded-full border-0 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all duration-300 shadow-md hover:shadow-lg placeholder:text-gray-400 hover:bg-white/90"
+                />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-indigo-500 transition-colors duration-300">
+                  <svg
+                    className="w-4 h-4 transform group-hover:scale-110 transition-transform duration-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-500 transition-all duration-300 hover:scale-110"
+                  >
+                    <FiX size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Add Project Button */}
+            <button
+              onClick={() => {
+                setShowAddModal(true);
+                setEditingProject(null);
+                setNewProject({
+                  title: '',
+                  description: '',
+                  imageUrl: '',
+                  link: '',
+                  technologies: [],
+                  featured: false,
+                  isNewRelease: false,
+                  isUpdate: false
+                });
+              }}
+              className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm rounded-full hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2 flex-shrink-0"
+            >
+              <FiPlus size={16} />
+              <span>Add Project</span>
+            </button>
+          </div>
         </div>
 
         {/* Projects Grid */}
-        {projects.length > 0 ? (
+        {projectsLoading ? (
+          <div className="flex flex-col items-center justify-center min-h-[400px]">
+            <div className="relative w-16 h-16">
+              {/* Outer ring */}
+              <div className="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
+              
+              {/* Spinning gradient ring */}
+              <div className="absolute inset-0 border-4 border-transparent border-t-indigo-600 rounded-full animate-spin"></div>
+              
+              {/* Inner gradient circles */}
+              <div className="absolute inset-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full opacity-20 animate-pulse"></div>
+              <div className="absolute inset-3 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full opacity-40 animate-pulse delay-150"></div>
+            </div>
+            <p className="mt-4 text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 font-medium animate-pulse">
+              Memuat Projects...
+            </p>
+          </div>
+        ) : filteredProjects.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
+            {filteredProjects.map((project) => (
               <div
                 key={project.id}
                 className="bg-gradient-to-r from-white/80 to-purple-50/30 backdrop-blur-sm rounded-2xl overflow-hidden shadow-md border border-white/60"
@@ -768,11 +860,29 @@ export default function ProjectsPage() {
 
         {/* Add/Edit Modal */}
         {(showAddModal || editingProject) && (
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-50">
-            <div className="bg-gradient-to-br from-white/90 to-blue-50/80 backdrop-blur-sm rounded-3xl p-6 w-full max-w-xl max-h-[80vh] overflow-y-auto mx-4 shadow-lg border border-white/50">
-              <h3 className="text-lg font-medium text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-4">
-                {editingProject ? 'Edit Project' : 'Add New Project'}
-              </h3>
+          <div 
+            className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-50"
+            style={{
+              animation: 'fadeIn 0.3s ease-out'
+            }}
+          >
+            <div 
+              className="bg-gradient-to-br from-white/90 to-blue-50/80 backdrop-blur-sm rounded-3xl p-6 w-full max-w-xl max-h-[80vh] overflow-y-auto mx-4 shadow-lg border border-white/50"
+              style={{
+                animation: 'modalEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1)'
+              }}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-medium text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
+                  {editingProject ? 'Edit Project' : 'Add New Project'}
+                </h3>
+                <button
+                  onClick={handleCancelForm}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100/50"
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
 
               <div className="space-y-4">
                 <div>
@@ -1264,6 +1374,71 @@ export default function ProjectsPage() {
           100% {
             transform: translate(-50%, -50%) rotate(360deg);
           }
+        }
+
+        @keyframes gradient {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
+        }
+
+        .animate-gradient {
+          background-size: 200% 200%;
+          animation: gradient 3s linear infinite;
+        }
+
+        @keyframes gradient-x {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
+        }
+        .animate-gradient-x {
+          background-size: 200% 200%;
+          animation: gradient-x 15s ease infinite;
+        }
+
+        @keyframes modalEnter {
+          0% {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+          }
+          60% {
+            opacity: 1;
+            transform: scale(1.02) translateY(-5px);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        .modal-content-enter {
+          animation: modalEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .modal-backdrop-enter {
+          animation: fadeIn 0.3s ease-out;
         }
       `}</style>
     </AnimatedBackground>
