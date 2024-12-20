@@ -106,7 +106,8 @@ export default function ProjectsPage() {
     if (!editingProject?.id) return;
 
     try {
-      await updateDoc(doc(db, 'projects', editingProject.id), editingProject);
+      const { id, ...projectData } = editingProject;
+      await updateDoc(doc(db, 'projects', id), projectData);
       toast.success('Project updated successfully');
       setEditingProject(null);
       fetchProjects();
@@ -180,35 +181,98 @@ export default function ProjectsPage() {
   };
 
   const generateScreenshot = async (url: string) => {
-    if (!url) return;
-
-    // Menggunakan Screenshotone.com API
-    // Anda perlu mendaftar untuk mendapatkan access key
-    const accessKey = process.env.NEXT_PUBLIC_SCREENSHOT_API_KEY;
-    const options = {
-      viewport_width: 1920,
-      viewport_height: 1080,
-      format: 'jpg',
-      block_ads: true,
-      block_trackers: true,
-      cache_ttl: 2592000, // 30 days cache
-    };
-
-    const params = new URLSearchParams({
-      url: url,
-      ...options,
-      access_key: accessKey as string,
-    });
-
-    const screenshotUrl = `https://api.screenshotone.com/take?${params}`;
-    
-    if (editingProject) {
-      setEditingProject({ ...editingProject, imageUrl: screenshotUrl });
-    } else {
-      setNewProject({ ...newProject, imageUrl: screenshotUrl });
+    if (!url) {
+      toast.error('URL proyek diperlukan');
+      return;
     }
-    
-    toast.success('Screenshot generated!');
+
+    try {
+      setUploading(true);
+      const accessKey = process.env.NEXT_PUBLIC_APIFLASH_KEY;
+      
+      if (!accessKey) {
+        toast.error('API key tidak ditemukan');
+        return;
+      }
+
+      // Validasi URL
+      try {
+        new URL(url);
+      } catch (e) {
+        toast.error('URL tidak valid');
+        return;
+      }
+
+      // Gunakan APIFlash untuk screenshot
+      const apiUrl = 'https://api.apiflash.com/v1/urltoimage';
+      const params = new URLSearchParams({
+        access_key: accessKey,
+        url: url,
+        format: 'jpeg',
+        quality: '100',
+        width: '1920',
+        height: '1080',
+        fresh: 'true',
+        response_type: 'json'
+      });
+
+      const response = await fetch(`${apiUrl}?${params.toString()}`, {
+        method: 'GET'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        let message = 'Gagal mengambil screenshot';
+
+        switch (response.status) {
+          case 401:
+            message = 'API key tidak valid';
+            break;
+          case 402:
+            message = 'Batas penggunaan API telah tercapai';
+            break;
+          case 422:
+            message = 'Parameter tidak valid';
+            break;
+          default:
+            message = errorData.message || `Error: ${response.status}`;
+        }
+
+        throw new Error(message);
+      }
+
+      const data = await response.json();
+      
+      if (!data.url) {
+        throw new Error('Tidak ada URL screenshot yang diterima');
+      }
+
+      // Download gambar dari URL yang diberikan
+      const imageResponse = await fetch(data.url);
+      if (!imageResponse.ok) {
+        throw new Error('Gagal mengunduh gambar screenshot');
+      }
+
+      const blob = await imageResponse.blob();
+      if (blob.size === 0) {
+        throw new Error('Gambar kosong');
+      }
+
+      const imageUrl = URL.createObjectURL(blob);
+      
+      if (editingProject) {
+        setEditingProject({ ...editingProject, imageUrl });
+      } else {
+        setNewProject({ ...newProject, imageUrl });
+      }
+      
+      toast.success('Screenshot berhasil dibuat!');
+    } catch (error: any) {
+      console.error('Screenshot error:', error.message);
+      toast.error(error.message || 'Gagal membuat screenshot');
+    } finally {
+      setUploading(false);
+    }
   };
 
   if (authLoading) {
@@ -490,11 +554,21 @@ export default function ProjectsPage() {
                           }
                           generateScreenshot(url);
                         }}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md"
+                        disabled={uploading}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg transition-all shadow-md ${uploading ? 'opacity-50 cursor-not-allowed' : 'hover:from-indigo-700 hover:to-purple-700'}`}
                         title="Generate screenshot from project URL"
                       >
-                        <FiCamera size={16} />
-                        <span>Take Screenshot</span>
+                        {uploading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <FiCamera size={16} />
+                            <span>Take Screenshot</span>
+                          </>
+                        )}
                       </button>
                       <input
                         ref={fileInputRef}
