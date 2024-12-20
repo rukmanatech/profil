@@ -1,0 +1,8 @@
+1|rules_version = '2';
+2|service firebase.storage {
+3|  match /b/{bucket}/o {
+4|    match /{allPaths=**} {
+5|      allow read, write, delete: if request.auth != null;
+6|    }
+7|  }
+8|} 
