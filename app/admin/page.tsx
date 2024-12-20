@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { db, auth, storage } from '../config/firebase';
 import { doc, getDoc, setDoc, collection, getDocs, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { FiEdit2, FiPlus, FiGithub, FiLinkedin, FiTwitter, FiInstagram, FiFacebook, FiYoutube, FiGlobe, FiTrash2, FiMail, FiPhone, FiFolder, FiFileText } from 'react-icons/fi';
 import { SiTiktok, SiDiscord, SiTelegram, SiWhatsapp, SiMedium, SiBehance, SiDribbble, SiDevdotto, SiHashnode, SiStackoverflow, SiUpwork, SiFiverr, SiFreelancer } from 'react-icons/si';
 import toast, { Toaster } from 'react-hot-toast';
@@ -304,6 +304,36 @@ export default function EditProfilePage() {
     fetchData();
   }, [user, authLoading, router]);
 
+  const handleProfileUpdate = async (field: string, value: any) => {
+    setSaving(true);
+    try {
+      const profileRef = doc(db, 'profile', 'main');
+      const profileDoc = await getDoc(profileRef);
+
+      if (!profileDoc.exists()) {
+        // Jika dokumen belum ada, buat baru
+        await setDoc(profileRef, {
+          [field]: value,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+      } else {
+        // Jika sudah ada, update
+        await updateDoc(profileRef, {
+          [field]: value,
+          updatedAt: new Date()
+        });
+      }
+      
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error('Error updating profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async (section: string) => {
     setSaving(true);
     try {
@@ -400,32 +430,83 @@ export default function EditProfilePage() {
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setUploading(true);
 
     try {
-      setUploading(true);
-      // Buat referensi ke Firebase Storage dengan timestamp untuk menghindari nama file duplikat
-      const storageRef = ref(storage, `avatars/${Date.now()}_${file.name}`);
+      const userId = auth.currentUser?.uid;
+      if (!userId) throw new Error('No user logged in');
+
+      // Ambil data profil terbaru untuk mendapatkan path file lama
+      const profileDoc = await getDoc(doc(db, 'profile', userId));
+      const currentProfile = profileDoc.data();
+
+      // Hapus file lama dari storage jika ada
+      if (currentProfile?.avatarPath) {
+        try {
+          const oldAvatarRef = ref(storage, currentProfile.avatarPath);
+          await deleteObject(oldAvatarRef);
+        } catch (deleteError) {
+          console.error('Error deleting old avatar:', deleteError);
+          // Lanjutkan proses meskipun gagal menghapus file lama
+        }
+      }
+
+      // Generate nama file yang unik untuk file baru
+      const fileName = `avatars/${userId}_${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, fileName);
       
-      // Upload file
+      // Upload file baru ke storage
       await uploadBytes(storageRef, file);
-      
-      // Dapatkan URL download
       const downloadURL = await getDownloadURL(storageRef);
-      
-      // Update profile di Firestore
-      await updateDoc(doc(db, 'profile', 'main'), {
-        avatar: downloadURL
-      });
-      
-      // Update state lokal
-      setProfile(prev => ({
-        ...prev,
-        avatar: downloadURL
-      }));
-      
-      setUploading(false);
+
+      // Update profile dengan URL avatar baru
+      const updatedProfile = {
+        ...profile,
+        avatar: downloadURL,
+        avatarPath: fileName
+      };
+
+      await setDoc(doc(db, 'profile', userId), updatedProfile, { merge: true });
+      setProfile(updatedProfile);
+      toast.success('Avatar updated successfully');
     } catch (error) {
-      console.error('Error uploading avatar:', error);
+      console.error('Error updating avatar:', error);
+      toast.error('Error updating avatar');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteAvatar = async () => {
+    setUploading(true);
+    try {
+      const userId = auth.currentUser?.uid;
+      if (!userId) throw new Error('No user logged in');
+
+      // Ambil data profil terbaru
+      const profileDoc = await getDoc(doc(db, 'profile', userId));
+      const currentProfile = profileDoc.data();
+      
+      // Hapus file dari storage jika ada path
+      if (currentProfile?.avatarPath) {
+        const avatarRef = ref(storage, currentProfile.avatarPath);
+        await deleteObject(avatarRef);
+      }
+
+      // Update profile tanpa avatar
+      const updatedProfile = {
+        ...profile,
+        avatar: '',
+        avatarPath: ''
+      };
+
+      await setDoc(doc(db, 'profile', userId), updatedProfile, { merge: true });
+      setProfile(updatedProfile);
+      toast.success('Avatar deleted successfully');
+    } catch (error) {
+      console.error('Error deleting avatar:', error);
+      toast.error('Error deleting avatar');
+    } finally {
       setUploading(false);
     }
   };
@@ -446,20 +527,24 @@ export default function EditProfilePage() {
 
         {/* Hero Section */}
         <section className="relative bg-white/80 backdrop-blur-sm rounded-3xl p-6 sm:p-8 mb-6 shadow-md border border-white/60">
-          {uploading && <LoadingOverlay message="Uploading image..." />}
+          {uploading && <LoadingOverlay message="Processing profile..." />}
           <div className="flex flex-col items-center gap-6 sm:gap-8">
             {/* Avatar */}
             <div className="relative">
-              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 ring-4 ring-white">
+              {/* Outer ring dengan gradient */}
+              <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full blur"></div>
+              
+              {/* Inner container */}
+              <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden bg-gradient-to-br from-white to-gray-100 ring-2 ring-white shadow-xl">
                 {profile.avatar ? (
                   <Image
                     src={profile.avatar}
                     alt="Profile"
                     fill
-                    className="object-cover"
+                    className="object-cover hover:scale-110 transition-transform duration-300"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-300 transition-colors">
+                  <div className="w-full h-full flex items-center justify-center text-gray-300 transition-colors hover:text-gray-400">
                     <FiPlus size={32} />
                   </div>
                 )}
@@ -467,22 +552,21 @@ export default function EditProfilePage() {
               
               {/* Edit & Delete Buttons */}
               <div className="absolute -bottom-2 right-0 flex gap-2 transition-opacity">
-                <label className="p-2 bg-white rounded-full shadow-md cursor-pointer hover:bg-gray-50 transition-colors">
+                <label className={`p-2 bg-white rounded-full shadow-lg cursor-pointer hover:bg-gray-50 hover:scale-110 transition-all ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <input
                     type="file"
                     accept="image/*"
                     onChange={handleAvatarChange}
                     className="hidden"
+                    disabled={uploading}
                   />
                   <FiEdit2 size={16} className="text-gray-600" />
                 </label>
                 {profile.avatar && (
                   <button
-                    onClick={() => {
-                      setProfile(prev => ({ ...prev, avatar: '' }));
-                      handleSave('basic');
-                    }}
-                    className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 transition-colors"
+                    onClick={handleDeleteAvatar}
+                    disabled={uploading}
+                    className={`p-2 bg-white rounded-full shadow-lg hover:bg-gray-50 hover:scale-110 transition-all ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <FiTrash2 size={16} className="text-red-500" />
                   </button>

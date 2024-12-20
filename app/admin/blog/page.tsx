@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/app/config/firebase';
 import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { FiPlus, FiTrash2, FiEdit2, FiArrowLeft, FiBook, FiCalendar, FiTag } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiEdit2, FiArrowLeft, FiBook, FiCalendar } from 'react-icons/fi';
 import toast, { Toaster } from 'react-hot-toast';
 import Link from 'next/link';
 import { useAuth } from '@/app/context/AuthContext';
@@ -85,6 +85,7 @@ export default function BlogPage() {
   };
 
   const handleAddPost = async () => {
+    setSaving(true);
     try {
       if (!newPost.title || !newPost.content) {
         toast.error('Please fill in all required fields');
@@ -114,12 +115,14 @@ export default function BlogPage() {
     } catch (error) {
       console.error('Error adding post:', error);
       toast.error('Error adding post');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleUpdatePost = async () => {
     if (!editingPost?.id) return;
-
+    setSaving(true);
     try {
       const postData = {
         ...editingPost,
@@ -134,12 +137,14 @@ export default function BlogPage() {
     } catch (error) {
       console.error('Error updating post:', error);
       toast.error('Error updating post');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDeletePost = async (postId: string) => {
     if (!confirm('Are you sure you want to delete this post?')) return;
-
+    setSaving(true);
     try {
       await deleteDoc(doc(db, 'blog', postId));
       toast.success('Post deleted successfully');
@@ -147,6 +152,8 @@ export default function BlogPage() {
     } catch (error) {
       console.error('Error deleting post:', error);
       toast.error('Error deleting post');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -183,9 +190,11 @@ export default function BlogPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-      </div>
+      <AnimatedBackground>
+        <div className="min-h-screen">
+          <LoadingOverlay message="Loading blog posts..." />
+        </div>
+      </AnimatedBackground>
     );
   }
 
@@ -193,6 +202,7 @@ export default function BlogPage() {
     <AnimatedBackground>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <Toaster position="top-center" />
+        {saving && <LoadingOverlay message="Saving changes..." />}
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
