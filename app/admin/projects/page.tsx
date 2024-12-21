@@ -160,6 +160,8 @@ export default function ProjectsPage() {
   const [saving, setSaving] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(6); // Default untuk desktop
 
   useEffect(() => {
     if (authLoading) return;
@@ -170,6 +172,28 @@ export default function ProjectsPage() {
 
     fetchProjects();
   }, [user, authLoading, router]);
+
+  // Fungsi untuk mengatur itemsPerPage berdasarkan ukuran layar
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 640) { // Mobile
+        setItemsPerPage(3);
+      } else if (window.innerWidth < 1024) { // Tablet
+        setItemsPerPage(4);
+      } else { // Desktop
+        setItemsPerPage(6);
+      }
+    };
+
+    // Set initial value
+    handleResize();
+
+    // Add event listener
+    window.addEventListener('resize', handleResize);
+
+    // Cleanup
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const fetchProjects = async () => {
     try {
@@ -182,7 +206,7 @@ export default function ProjectsPage() {
       setProjects(projectsData.sort((a, b) => b.createdAt?.toMillis() - a.createdAt?.toMillis()));
     } catch (error) {
       console.error('Error fetching projects:', error);
-      toast.custom((t) => (
+      toast.custom((t: ToastType) => (
         <CustomToast
           t={t}
           type="error"
@@ -208,7 +232,7 @@ export default function ProjectsPage() {
     try {
       setSaving(true);
       if (!newProject.title || !newProject.description) {
-        toast.custom((t) => (
+        toast.custom((t: ToastType) => (
           <CustomToast
             t={t}
             type="error"
@@ -240,7 +264,7 @@ export default function ProjectsPage() {
       fetchProjects();
     } catch (error) {
       console.error('Error adding project:', error);
-      toast.custom((t) => (
+      toast.custom((t: ToastType) => (
         <CustomToast
           t={t}
           type="error"
@@ -265,7 +289,7 @@ export default function ProjectsPage() {
       fetchProjects();
     } catch (error) {
       console.error('Error updating project:', error);
-      toast.custom((t) => (
+      toast.custom((t: ToastType) => (
         <CustomToast
           t={t}
           type="error"
@@ -298,7 +322,7 @@ export default function ProjectsPage() {
       fetchProjects();
     } catch (error) {
       console.error('Error deleting project:', error);
-      toast.custom((t) => (
+      toast.custom((t: ToastType) => (
         <CustomToast
           t={t}
           type="error"
@@ -363,7 +387,7 @@ export default function ProjectsPage() {
       
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast.custom((t) => (
+      toast.custom((t: ToastType) => (
         <CustomToast
           t={t}
           type="error"
@@ -415,7 +439,7 @@ export default function ProjectsPage() {
       }
     } catch (error) {
       console.error('Error removing image:', error);
-      toast.custom((t) => (
+      toast.custom((t: ToastType) => (
         <CustomToast
           t={t}
           type="error"
@@ -428,7 +452,7 @@ export default function ProjectsPage() {
 
   const generateScreenshot = async (url: string) => {
     if (!url) {
-      toast.custom((t) => (
+      toast.custom((t: ToastType) => (
         <CustomToast
           t={t}
           type="error"
@@ -444,7 +468,7 @@ export default function ProjectsPage() {
       const accessKey = process.env.NEXT_PUBLIC_APIFLASH_KEY;
       
       if (!accessKey) {
-        toast.custom((t) => (
+        toast.custom((t: ToastType) => (
           <CustomToast
             t={t}
             type="error"
@@ -465,7 +489,7 @@ export default function ProjectsPage() {
       try {
         new URL(url);
       } catch (e) {
-        toast.custom((t) => (
+        toast.custom((t: ToastType) => (
           <CustomToast
             t={t}
             type="error"
@@ -549,7 +573,7 @@ export default function ProjectsPage() {
       
     } catch (error: any) {
       console.error('Screenshot error:', error.message);
-      toast.custom((t) => (
+      toast.custom((t: ToastType) => (
         <CustomToast
           t={t}
           type="error"
@@ -585,7 +609,7 @@ export default function ProjectsPage() {
       });
     } catch (error) {
       console.error('Error cleaning up:', error);
-      toast.custom((t) => (
+      toast.custom((t: ToastType) => (
         <CustomToast
           t={t}
           type="error"
@@ -605,6 +629,55 @@ export default function ProjectsPage() {
       project.technologies.some(tech => tech.toLowerCase().includes(searchLower))
     );
   });
+
+  // Hitung total halaman
+  const totalPages = Math.ceil(filteredProjects.length / itemsPerPage);
+
+  // Get current projects
+  const getCurrentProjects = () => {
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    return filteredProjects.slice(indexOfFirstItem, indexOfLastItem);
+  };
+
+  // Pagination component
+  const Pagination = () => {
+    return (
+      <div className="flex items-center justify-center gap-2 mt-8">
+        <button
+          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="p-2 text-gray-600 hover:text-gray-900 transition-colors bg-white/50 backdrop-blur-sm rounded-full hover:bg-white/80 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <FiArrowLeft size={18} />
+        </button>
+        
+        <div className="flex items-center gap-2">
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(number => (
+            <button
+              key={number}
+              onClick={() => setCurrentPage(number)}
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all ${
+                currentPage === number
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                : 'text-gray-600 hover:text-gray-900 bg-white/50 hover:bg-white/80'
+              }`}
+            >
+              {number}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+          disabled={currentPage === totalPages}
+          className="p-2 text-gray-600 hover:text-gray-900 transition-colors bg-white/50 backdrop-blur-sm rounded-full hover:bg-white/80 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <FiArrowLeft size={18} className="rotate-180" />
+        </button>
+      </div>
+    );
+  };
 
   if (authLoading) {
     return (
@@ -722,7 +795,7 @@ export default function ProjectsPage() {
           </div>
         </div>
 
-        {/* Projects Grid */}
+        {/* Projects Grid with Pagination */}
         {projectsLoading ? (
           <div className="flex flex-col items-center justify-center min-h-[400px]">
             <div className="relative w-16 h-16">
@@ -741,87 +814,90 @@ export default function ProjectsPage() {
             </p>
           </div>
         ) : filteredProjects.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProjects.map((project) => (
-              <div
-                key={project.id}
-                className="bg-gradient-to-r from-white/80 to-purple-50/30 backdrop-blur-sm rounded-2xl overflow-hidden shadow-md border border-white/60"
-              >
-                <div className="aspect-video bg-gradient-to-br from-indigo-100/50 to-purple-100/50 relative">
-                  {project.imageUrl ? (
-                    <img
-                      src={project.imageUrl}
-                      alt={project.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-indigo-300">
-                      <FiPlus size={32} />
-                    </div>
-                  )}
-                </div>
-                <div className="p-6 space-y-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {getCurrentProjects().map((project) => (
+                <div
+                  key={project.id}
+                  className="bg-gradient-to-r from-white/80 to-purple-50/30 backdrop-blur-sm rounded-2xl overflow-hidden shadow-md border border-white/60"
+                >
+                  <div className="aspect-video bg-gradient-to-br from-indigo-100/50 to-purple-100/50 relative">
+                    {project.imageUrl ? (
+                      <img
+                        src={project.imageUrl}
+                        alt={project.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-indigo-300">
+                        <FiPlus size={32} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-medium text-gray-900">
+                            {project.title}
+                          </h3>
+                          {project.isNewRelease && (
+                            <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                              New
+                            </span>
+                          )}
+                          {project.isUpdate && (
+                            <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                              Update
+                            </span>
+                          )}
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-medium text-gray-900">
-                          {project.title}
-                        </h3>
-                        {project.isNewRelease && (
-                          <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                            New
-                          </span>
-                        )}
-                        {project.isUpdate && (
-                          <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                            Update
-                          </span>
-                        )}
+                        <button
+                          onClick={() => setEditingProject(project)}
+                          className="p-1.5 text-gray-600 hover:text-indigo-600 transition-colors"
+                        >
+                          <FiEdit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProject(project)}
+                          className="p-1.5 text-gray-600 hover:text-red-500 transition-colors"
+                        >
+                          <FiTrash2 size={16} />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setEditingProject(project)}
-                        className="p-1.5 text-gray-600 hover:text-indigo-600 transition-colors"
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {project.description}
+                    </p>
+                    {project.link && (
+                      <a
+                        href={project.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-indigo-600 hover:text-indigo-700 flex items-center gap-1.5"
                       >
-                        <FiEdit2 size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProject(project)}
-                        className="p-1.5 text-gray-600 hover:text-red-500 transition-colors"
-                      >
-                        <FiTrash2 size={16} />
-                      </button>
+                        <FiLink size={14} />
+                        <span>View Project</span>
+                      </a>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {project.technologies?.map((tech, index) => (
+                        <span
+                          key={index}
+                          className="px-2.5 py-1 text-xs bg-gradient-to-r from-indigo-50 to-purple-50 text-gray-600 rounded-full border border-white/60"
+                        >
+                          {tech}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600 line-clamp-2">
-                    {project.description}
-                  </p>
-                  {project.link && (
-                    <a
-                      href={project.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-indigo-600 hover:text-indigo-700 flex items-center gap-1.5"
-                    >
-                      <FiLink size={14} />
-                      <span>View Project</span>
-                    </a>
-                  )}
-                  <div className="flex flex-wrap gap-2">
-                    {project.technologies?.map((tech, index) => (
-                      <span
-                        key={index}
-                        className="px-2.5 py-1 text-xs bg-gradient-to-r from-indigo-50 to-purple-50 text-gray-600 rounded-full border border-white/60"
-                      >
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            {totalPages > 1 && <Pagination />}
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 px-4">
             <div className="bg-gradient-to-r from-white/80 to-purple-50/30 backdrop-blur-sm rounded-3xl p-8 text-center max-w-md w-full border border-white/60 shadow-md">
@@ -987,7 +1063,7 @@ export default function ProjectsPage() {
                         onClick={() => {
                           const url = editingProject ? editingProject.link : newProject.link;
                           if (!url) {
-                            toast.custom((t) => (
+                            toast.custom((t: ToastType) => (
                               <CustomToast
                                 t={t}
                                 type="error"

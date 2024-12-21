@@ -27,16 +27,16 @@ const MenuBar = ({ editor }: { editor: any }) => {
       
       try {
         setIsUploading(true);
-      const storageRef = ref(storage, `blog-images/${Date.now()}-${file.name}`);
+        const storageRef = ref(storage, `blog-images/${Date.now()}-${file.name}`);
         const snapshot = await uploadBytes(storageRef, file);
         const url = await getDownloadURL(snapshot.ref);
-      
+        
         editor.chain().focus().setImage({ src: url }).run();
-      toast.success('Gambar berhasil diunggah!');
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Gagal mengunggah gambar');
-    } finally {
+        toast.success('Gambar berhasil diunggah!');
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        toast.error('Gagal mengunggah gambar');
+      } finally {
         setIsUploading(false);
       }
     };
@@ -55,22 +55,22 @@ const MenuBar = ({ editor }: { editor: any }) => {
         className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('bold') ? 'bg-gray-100' : ''}`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
-                <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
-              </svg>
-            </button>
+          <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
+          <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
+        </svg>
+      </button>
       <button
         onClick={() => editor.chain().focus().toggleItalic().run()}
         disabled={!editor.can().chain().focus().toggleItalic().run()}
         className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('italic') ? 'bg-gray-100' : ''}`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="4" x2="10" y2="4"></line>
-                <line x1="14" y1="20" x2="5" y2="20"></line>
-                <line x1="15" y1="4" x2="9" y2="20"></line>
-              </svg>
-            </button>
-            <button 
+          <line x1="19" y1="4" x2="10" y2="4"></line>
+          <line x1="14" y1="20" x2="5" y2="20"></line>
+          <line x1="15" y1="4" x2="9" y2="20"></line>
+        </svg>
+      </button>
+      <button
         onClick={() => editor.chain().focus().toggleStrike().run()}
         disabled={!editor.can().chain().focus().toggleStrike().run()}
         className={`p-2 rounded hover:bg-gray-100 ${editor.isActive('strike') ? 'bg-gray-100' : ''}`}
@@ -111,13 +111,13 @@ const MenuBar = ({ editor }: { editor: any }) => {
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
           <circle cx="8.5" cy="8.5" r="1.5"></circle>
           <polyline points="21 15 16 10 5 21"></polyline>
-              </svg>
+        </svg>
         {isUploading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-white/50">
+          <div className="absolute inset-0 flex items-center justify-center bg-white/50">
             <div className="w-4 h-4 border-2 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin"></div>
-                </div>
-              )}
-            </button>
+          </div>
+        )}
+      </button>
       <button
         onClick={() => {
           const url = window.prompt('Enter the URL:');
@@ -166,7 +166,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
         </svg>
       </button>
-          </div>
+    </div>
   );
 };
 

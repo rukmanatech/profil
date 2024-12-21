@@ -1,0 +1,151 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+/* Mengatur font default */
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Font untuk heading */
+h1, h2, h3, h4, h5, h6, .font-plus-jakarta {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Font untuk body text */
+p, .font-inter {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Animasi */
+@keyframes modalEnter {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02) translateY(-5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes success-dialog-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02) translateY(-5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes success-icon {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) rotate(-45deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) rotate(5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
+
+@keyframes ring-scale-1 {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { opacity: 0.5; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+@keyframes ring-scale-2 {
+  0% { transform: scale(0.5); opacity: 0; }
+  40% { opacity: 0.4; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+@keyframes ring-scale-3 {
+  0% { transform: scale(0.5); opacity: 0; }
+  30% { opacity: 0.3; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+@keyframes toast-enter {
+  0% { 
+    opacity: 0;
+    transform: translateY(16px) scale(0.9);
+  }
+  100% { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-leave {
+  0% { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% { 
+    opacity: 0;
+    transform: translateY(-16px) scale(0.9);
+  }
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%); }
+  50%, 100% { transform: translateX(100%); }
+}
+
+.animate-success-icon {
+  animation: success-icon 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-ring-scale-1 {
+  animation: ring-scale-1 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.animate-ring-scale-2 {
+  animation: ring-scale-2 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  animation-delay: 0.15s;
+}
+
+.animate-ring-scale-3 {
+  animation: ring-scale-3 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  animation-delay: 0.3s;
+}
+
+.animate-shine {
+  animation: shine 1.5s linear infinite;
+}
+
+.animate-success-rings > div {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+}
+
+.animate-modal-enter {
+  animation: modalEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+} 
