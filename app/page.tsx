@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { FiGithub, FiLinkedin, FiTwitter, FiInstagram, FiFacebook, FiYoutube, FiGlobe, FiMail, FiPhone, FiExternalLink } from 'react-icons/fi';
 import { SiTiktok, SiDiscord, SiTelegram, SiWhatsapp, SiMedium, SiBehance, SiDribbble, SiDevdotto, SiHashnode, SiStackoverflow, SiUpwork, SiFiverr, SiFreelancer } from 'react-icons/si';
 import AnimatedBackground from './components/AnimatedBackground';
+import DOMPurify from 'isomorphic-dompurify';
 
 interface SocialLink {
   id: string;
@@ -36,12 +37,19 @@ interface Project {
   imageUrl: string;
   link: string;
   technologies: string[];
+  featured: boolean;
+  isNewRelease: boolean;
+  isUpdate: boolean;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 interface Post {
   id: string;
   title: string;
   content: string;
+  imageUrl?: string;
+  link?: string;
   createdAt: any;
 }
 
@@ -70,15 +78,23 @@ const SOCIAL_ICONS: { [key: string]: any } = {
   phone: FiPhone,
 };
 
+// Fungsi untuk membersihkan HTML dan mengambil teks saja
+const stripHtml = (html: string) => {
+  const clean = DOMPurify.sanitize(html, { ALLOWED_TAGS: [] });
+  return clean.substring(0, 200) + (clean.length > 200 ? '...' : '');
+};
+
 export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setError(null);
         // Fetch profile
         const profileDoc = await getDoc(doc(db, 'profile', 'Qm8iFttChLWD1wLbSCLmnLxl2HS2'));
         
@@ -106,16 +122,25 @@ export default function Home() {
         })) as Project[];
         setProjects(projectsData);
 
-        // Fetch posts
-        const postsSnapshot = await getDocs(collection(db, 'posts'));
-        const postsData = postsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Post[];
-        setPosts(postsData);
+        // Fetch blog posts
+        const blogSnapshot = await getDocs(collection(db, 'blog'));
+        const blogData = blogSnapshot.docs.map(doc => {
+          const data = doc.data();
+          console.log('Blog data:', data); // Debugging
+          return {
+            id: doc.id,
+            title: data.title,
+            content: data.content,
+            imageUrl: data.imageUrl,
+            link: data.slug ? `/blog/${data.slug}` : data.link, // Menggunakan slug jika ada
+            createdAt: data.createdAt
+          };
+        }) as Post[];
+        setPosts(blogData);
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching data:', error);
+        setError(error.message || 'Terjadi kesalahan saat mengambil data');
       } finally {
         setLoading(false);
       }
@@ -132,6 +157,17 @@ export default function Home() {
           <div className="absolute inset-0 border-4 border-transparent border-t-indigo-600 rounded-full animate-spin"></div>
           <div className="absolute inset-4 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full opacity-20 animate-pulse"></div>
           <div className="absolute inset-6 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full opacity-40 animate-pulse delay-150"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center p-8 bg-white/80 rounded-xl shadow-sm border border-white/60">
+          <h2 className="text-2xl font-semibold text-red-600 mb-4">Error</h2>
+          <p className="text-gray-600">{error}</p>
         </div>
       </div>
     );
@@ -224,39 +260,72 @@ export default function Home() {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {projects.map((project) => (
-                <div key={project.id} className="bg-white/80 rounded-xl shadow-sm hover:shadow-md transition-all p-4 border border-white/60">
-                  {project.imageUrl && (
-                    <div className="relative h-48 mb-4 rounded-lg overflow-hidden">
-                      <Image
-                        src={project.imageUrl}
-                        alt={project.title}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
-                  <h3 className="text-lg font-semibold mb-2">{project.title}</h3>
-                  <p className="text-gray-600 mb-4 text-sm">{project.description}</p>
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {project.technologies.map((tech, index) => (
-                      <span
-                        key={index}
-                        className="px-2 py-1 text-xs font-medium bg-gradient-to-r from-indigo-50 to-purple-50 rounded-full"
-                      >
-                        {tech}
-                      </span>
-                    ))}
+                <div key={project.id} className="bg-white/80 rounded-xl shadow-sm hover:shadow-md transition-all p-4 border border-white/60 flex flex-col">
+                  <div className="relative">
+                    {project.imageUrl && (
+                      <div className="relative h-48 mb-4 rounded-lg overflow-hidden">
+                        <Image
+                          src={project.imageUrl}
+                          alt={project.title}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    )}
                   </div>
-                  {project.link && (
-                    <a
-                      href={project.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-700"
-                    >
-                      View Project <FiExternalLink className="ml-1" />
-                    </a>
-                  )}
+                  <div className="flex flex-col flex-grow">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
+                          {project.title}
+                        </h3>
+                        <div className="flex gap-1.5">
+                          {project.isNewRelease && (
+                            <span className="px-2 py-0.5 text-xs font-semibold bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full shadow-sm">
+                              New
+                            </span>
+                          )}
+                          {project.isUpdate && (
+                            <span className="px-2 py-0.5 text-xs font-semibold bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-full shadow-sm">
+                              Update
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {project.updatedAt && (
+                        <span className="text-xs text-indigo-500">
+                          {new Date(project.updatedAt.toDate()).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-600 mt-2 mb-4 text-sm">{project.description}</p>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {project.technologies.map((tech, index) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 text-xs font-medium bg-gradient-to-r from-indigo-50 to-purple-50 rounded-full text-indigo-600"
+                        >
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-auto flex justify-end">
+                      {project.link && (
+                        <a
+                          href={project.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm hover:shadow-md"
+                        >
+                          View Project <FiExternalLink className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -273,12 +342,64 @@ export default function Home() {
               {posts.map((post) => (
                 <article
                   key={post.id}
-                  className="bg-white/80 rounded-xl shadow-sm hover:shadow-md transition-all p-6 border border-white/60"
+                  className="group bg-white/80 rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden border border-white/60 cursor-pointer transform hover:-translate-y-1"
+                  onClick={() => {
+                    console.log('Clicking post:', post); // Debugging
+                    if (post.link) {
+                      if (post.link.startsWith('/')) {
+                        // Internal link
+                        window.location.href = post.link;
+                      } else {
+                        // External link
+                        window.open(post.link, '_blank', 'noopener,noreferrer');
+                      }
+                    } else {
+                      console.log('No link available for this post'); // Debugging
+                    }
+                  }}
+                  role="link"
+                  tabIndex={0}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && post.link) {
+                      if (post.link.startsWith('/')) {
+                        window.location.href = post.link;
+                      } else {
+                        window.open(post.link, '_blank', 'noopener,noreferrer');
+                      }
+                    }
+                  }}
                 >
-                  <h3 className="text-xl font-semibold mb-2">{post.title}</h3>
-                  <p className="text-gray-600 mb-4">{post.content.substring(0, 200)}...</p>
-                  <div className="text-sm text-gray-500">
-                    {new Date(post.createdAt.toDate()).toLocaleDateString()}
+                  <div className="flex flex-col md:flex-row h-full">
+                    {post.imageUrl && (
+                      <div className="relative w-full md:w-48 h-48 overflow-hidden">
+                        <Image
+                          src={post.imageUrl}
+                          alt={post.title}
+                          fill
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                      </div>
+                    )}
+                    <div className="p-6 flex flex-col flex-grow">
+                      <h3 className="text-xl font-semibold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 group-hover:from-indigo-500 group-hover:to-purple-500">
+                        {post.title}
+                      </h3>
+                      <p className="text-gray-600 mb-4 flex-grow line-clamp-3">{stripHtml(post.content)}</p>
+                      <div className="flex items-center justify-between mt-auto">
+                        <div className="text-sm text-indigo-500">
+                          {new Date(post.createdAt.toDate()).toLocaleDateString('id-ID', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </div>
+                        {post.link && (
+                          <span className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full group-hover:from-indigo-700 group-hover:to-purple-700 transition-all shadow-sm group-hover:shadow-md">
+                            Baca Selengkapnya <FiExternalLink className="w-4 h-4" />
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </article>
               ))}
