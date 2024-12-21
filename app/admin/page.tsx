@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { db, auth, storage } from '../config/firebase';
 import { doc, getDoc, setDoc, collection, getDocs, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { FiEdit2, FiPlus, FiGithub, FiLinkedin, FiTwitter, FiInstagram, FiFacebook, FiYoutube, FiGlobe, FiTrash2, FiMail, FiPhone, FiFolder, FiFileText } from 'react-icons/fi';
+import { FiEdit2, FiPlus, FiGithub, FiLinkedin, FiTwitter, FiInstagram, FiFacebook, FiYoutube, FiGlobe, FiTrash2, FiMail, FiPhone, FiFolder, FiFileText, FiZap } from 'react-icons/fi';
 import { SiTiktok, SiDiscord, SiTelegram, SiWhatsapp, SiMedium, SiBehance, SiDribbble, SiDevdotto, SiHashnode, SiStackoverflow, SiUpwork, SiFiverr, SiFreelancer } from 'react-icons/si';
 import toast, { Toaster } from 'react-hot-toast';
 import Navbar from '../components/Navbar';
@@ -29,6 +29,8 @@ interface Profile {
   avatar: string;
   skills: string[];
   socialLinks: SocialLink[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface Project {
@@ -259,6 +261,8 @@ export default function EditProfilePage() {
     avatar: '',
     skills: [],
     socialLinks: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -270,6 +274,11 @@ export default function EditProfilePage() {
   const [socialUrls, setSocialUrls] = useState<{[key: string]: string}>({});
   const [modalStep, setModalStep] = useState<'select' | 'urls'>('select');
   const [uploading, setUploading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{show: boolean; linkId: string | null}>({
+    show: false,
+    linkId: null
+  });
 
   useEffect(() => {
     if (authLoading) return;
@@ -307,25 +316,15 @@ export default function EditProfilePage() {
   const handleProfileUpdate = async (field: string, value: any) => {
     setSaving(true);
     try {
-      const profileRef = doc(db, 'profile', 'main');
-      const profileDoc = await getDoc(profileRef);
+      const userId = auth.currentUser?.uid;
+      if (!userId) throw new Error('No user logged in');
 
-      if (!profileDoc.exists()) {
-        // Jika dokumen belum ada, buat baru
-        await setDoc(profileRef, {
-          [field]: value,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
-      } else {
-        // Jika sudah ada, update
-        await updateDoc(profileRef, {
-          [field]: value,
-          updatedAt: new Date()
-        });
-      }
-      
-      toast.success('Profile updated successfully');
+      // Update atau buat dokumen profil baru
+      await setDoc(doc(db, 'profile', userId), {
+        [field]: value,
+        updatedAt: new Date(),
+        createdAt: profile.createdAt || new Date() // Gunakan createdAt yang ada atau buat baru
+      }, { merge: true });
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error('Error updating profile');
@@ -340,8 +339,14 @@ export default function EditProfilePage() {
       const userId = auth.currentUser?.uid;
       if (!userId) throw new Error('No user logged in');
 
-      await setDoc(doc(db, 'profile', userId), profile, { merge: true });
-      toast.success('Saved successfully');
+      // Tambahkan timestamp jika belum ada
+      const updatedProfile = {
+        ...profile,
+        updatedAt: new Date(),
+        createdAt: profile.createdAt || new Date()
+      };
+
+      await setDoc(doc(db, 'profile', userId), updatedProfile, { merge: true });
       setEditMode(null);
     } catch (error) {
       console.error('Error saving:', error);
@@ -425,6 +430,7 @@ export default function EditProfilePage() {
       socialLinks: prev.socialLinks.filter(link => link.id !== id)
     }));
     handleSave('social');
+    setDeleteConfirmation({ show: false, linkId: null });
   };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -447,7 +453,6 @@ export default function EditProfilePage() {
           await deleteObject(oldAvatarRef);
         } catch (deleteError) {
           console.error('Error deleting old avatar:', deleteError);
-          // Lanjutkan proses meskipun gagal menghapus file lama
         }
       }
 
@@ -468,7 +473,6 @@ export default function EditProfilePage() {
 
       await setDoc(doc(db, 'profile', userId), updatedProfile, { merge: true });
       setProfile(updatedProfile);
-      toast.success('Avatar updated successfully');
     } catch (error) {
       console.error('Error updating avatar:', error);
       toast.error('Error updating avatar');
@@ -502,12 +506,38 @@ export default function EditProfilePage() {
 
       await setDoc(doc(db, 'profile', userId), updatedProfile, { merge: true });
       setProfile(updatedProfile);
-      toast.success('Avatar deleted successfully');
     } catch (error) {
       console.error('Error deleting avatar:', error);
       toast.error('Error deleting avatar');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleGenerateAI = async () => {
+    setIsGenerating(true);
+    try {
+      const response = await fetch('/api/generate-bio', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ currentBio: profile.bio }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate bio');
+      }
+
+      const data = await response.json();
+      setProfile(prev => ({ ...prev, bio: data.generatedBio }));
+      handleSave('bio');
+      toast.success('Bio generated successfully!');
+    } catch (error) {
+      console.error('Error generating bio:', error);
+      toast.error('Failed to generate bio');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -581,7 +611,7 @@ export default function EditProfilePage() {
                 value={profile.name}
                 onChange={e => setProfile({...profile, name: e.target.value})}
                 onBlur={() => handleSave('basic')}
-                className="block w-full text-2xl sm:text-3xl font-medium border-0 focus:ring-0 focus:outline-none bg-transparent text-center text-gray-900 placeholder-gray-300 hover:bg-gray-50/50 transition-colors rounded-lg"
+                className="block w-full text-2xl sm:text-3xl font-medium tracking-tight border-0 focus:ring-0 focus:outline-none bg-transparent text-center text-gray-900 placeholder-gray-300 hover:bg-gray-50/50 transition-colors rounded-lg"
                 placeholder="Your Name"
               />
               <input
@@ -589,7 +619,7 @@ export default function EditProfilePage() {
                 value={profile.title}
                 onChange={e => setProfile({...profile, title: e.target.value})}
                 onBlur={() => handleSave('basic')}
-                className="block w-full text-base sm:text-lg text-gray-900 border-0 focus:ring-0 focus:outline-none bg-transparent text-center placeholder-gray-300 hover:bg-gray-50/50 transition-colors rounded-lg"
+                className="block w-full text-base sm:text-lg font-normal tracking-wide border-0 focus:ring-0 focus:outline-none bg-transparent text-center text-gray-600 placeholder-gray-300 hover:bg-gray-50/50 transition-colors rounded-lg"
                 placeholder="Professional Title"
               />
             </div>
@@ -599,13 +629,26 @@ export default function EditProfilePage() {
         {/* Bio Section */}
         <section className="relative bg-gradient-to-br from-white/80 to-blue-50/30 backdrop-blur-sm rounded-3xl p-6 sm:p-8 mb-6 shadow-md border border-white/60">
           {saving && editMode === 'bio' && <LoadingOverlay message="Saving changes..." />}
-          <h2 className="text-lg sm:text-xl font-medium text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-4">About Me</h2>
+          {isGenerating && <LoadingOverlay message="Generating improved bio..." />}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">About Me</h2>
+            <button
+              onClick={handleGenerateAI}
+              disabled={isGenerating || !profile.bio}
+              className={`text-sm px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-medium tracking-wide ${
+                isGenerating || !profile.bio ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              <FiZap size={16} />
+              <span>Improve with AI</span>
+            </button>
+          </div>
           <textarea
             value={profile.bio}
             onChange={e => setProfile({...profile, bio: e.target.value})}
             onBlur={() => handleSave('bio')}
             rows={4}
-            className="block w-full text-base text-gray-900 border-0 focus:ring-0 focus:outline-none bg-transparent resize-none placeholder-gray-300 hover:bg-gray-50/50 transition-colors rounded-lg"
+            className="block w-full text-base font-normal tracking-wide text-gray-600 border-0 focus:ring-0 focus:outline-none bg-transparent resize-none placeholder-gray-300 hover:bg-gray-50/50 transition-colors rounded-lg"
             placeholder="Write something about yourself..."
           />
         </section>
@@ -613,13 +656,13 @@ export default function EditProfilePage() {
         {/* Skills Section */}
         <section className="relative bg-gradient-to-br from-white/80 to-purple-50/30 backdrop-blur-sm rounded-3xl p-6 sm:p-8 mb-6 shadow-md border border-white/60">
           {saving && editMode === 'skills' && <LoadingOverlay message="Saving changes..." />}
-          <h2 className="text-lg sm:text-xl font-medium text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 mb-6">Skills & Technologies</h2>
+          <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 mb-6">Skills & Technologies</h2>
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
               {profile.skills.map((skill, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gradient-to-r from-indigo-50 to-purple-50 text-gray-700 hover:from-indigo-100 hover:to-purple-100 transition-all group border border-white/60"
+                  className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium tracking-wide bg-gradient-to-r from-indigo-50 to-purple-50 text-gray-700 hover:from-indigo-100 hover:to-purple-100 transition-all group border border-white/60"
                 >
                   {skill}
                   <button
@@ -645,7 +688,7 @@ export default function EditProfilePage() {
                     handleSave('skills');
                   }
                 }}
-                className="flex-1 text-sm text-gray-900 border-0 bg-gradient-to-r from-white/70 to-purple-50/50 rounded-full px-4 py-2 focus:ring-0 focus:outline-none placeholder-gray-400 hover:from-white hover:to-purple-100/50 transition-all border border-white/50"
+                className="flex-1 text-sm font-normal tracking-wide text-gray-600 border-0 bg-gradient-to-r from-white/70 to-purple-50/50 rounded-full px-4 py-2 focus:ring-0 focus:outline-none placeholder-gray-400 hover:from-white hover:to-purple-100/50 transition-all border border-white/50"
                 placeholder="Add a skill..."
               />
               <button
@@ -653,7 +696,7 @@ export default function EditProfilePage() {
                   handleAddSkill();
                   handleSave('skills');
                 }}
-                className="text-sm px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm hover:shadow-md"
+                className="text-sm px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm hover:shadow-md font-medium tracking-wide"
               >
                 Add
               </button>
@@ -665,10 +708,10 @@ export default function EditProfilePage() {
         <section className="relative bg-gradient-to-br from-white/80 to-blue-50/30 backdrop-blur-sm rounded-3xl p-6 sm:p-8 mb-6 shadow-md border border-white/60">
           {saving && editMode === 'social' && <LoadingOverlay message="Saving changes..." />}
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg sm:text-xl font-medium text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Social Links</h2>
+            <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Social Links</h2>
             <button
               onClick={() => setShowSocialModal(true)}
-              className="text-sm px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+              className="text-sm px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-medium tracking-wide"
             >
               <FiPlus size={16} />
               <span>Add Link</span>
@@ -698,12 +741,12 @@ export default function EditProfilePage() {
                       setProfile(prev => ({ ...prev, socialLinks: updatedLinks }));
                     }}
                     onBlur={() => handleSave('social')}
-                    className="flex-1 text-sm text-gray-900 border-0 focus:ring-0 focus:outline-none bg-transparent placeholder-gray-300"
+                    className="flex-1 text-sm font-normal tracking-wide text-gray-600 border-0 focus:ring-0 focus:outline-none bg-transparent placeholder-gray-300"
                     placeholder={platform?.placeholder}
                   />
                   <button
-                    onClick={() => handleRemoveSocialLink(link.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:text-red-500"
+                    onClick={() => setDeleteConfirmation({ show: true, linkId: link.id })}
+                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"
                   >
                     <FiTrash2 size={16} />
                   </button>
@@ -712,7 +755,7 @@ export default function EditProfilePage() {
             })}
             {profile.socialLinks.length === 0 && (
               <div className="text-center py-6">
-                <p className="text-gray-400 text-sm">No social links added yet</p>
+                <p className="text-gray-400 text-sm font-normal tracking-wide">No social links added yet</p>
               </div>
             )}
           </div>
@@ -720,7 +763,7 @@ export default function EditProfilePage() {
 
         {/* Management Links */}
         <section className="bg-gradient-to-br from-white/80 to-purple-50/30 backdrop-blur-sm rounded-3xl p-6 sm:p-8 mb-6 shadow-md border border-white/60">
-          <h2 className="text-lg sm:text-xl font-medium text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 mb-6">Content Management</h2>
+          <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 mb-6">Content Management</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Link href="/admin/projects" prefetch>
               <div className="bg-gradient-to-r from-indigo-100/50 to-purple-100/50 rounded-2xl p-6 border border-white/60 shadow-md transition-all">
@@ -729,8 +772,8 @@ export default function EditProfilePage() {
                     <FiFolder size={24} />
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900">Projects</h3>
-                    <p className="text-sm text-gray-600">Manage your featured projects</p>
+                    <h3 className="text-lg font-medium tracking-tight text-gray-900">Projects</h3>
+                    <p className="text-sm font-normal tracking-wide text-gray-600">Manage your featured projects</p>
                   </div>
                 </div>
               </div>
@@ -743,8 +786,8 @@ export default function EditProfilePage() {
                     <FiFileText size={24} />
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900">Blog</h3>
-                    <p className="text-sm text-gray-600">Manage your blog posts</p>
+                    <h3 className="text-lg font-medium tracking-tight text-gray-900">Blog</h3>
+                    <p className="text-sm font-normal tracking-wide text-gray-600">Manage your blog posts</p>
                   </div>
                 </div>
               </div>
@@ -878,6 +921,34 @@ export default function EditProfilePage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmation.show && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-50">
+          <div className="relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 w-full max-w-md mx-4 shadow-lg border border-white/50">
+            <h3 className="text-lg font-semibold tracking-tight text-gray-900 mb-4">
+              Delete Social Link
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this social link? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirmation({ show: false, linkId: null })}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deleteConfirmation.linkId && handleRemoveSocialLink(deleteConfirmation.linkId)}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-full hover:bg-red-600 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthContextProvider } from './context/AuthContext';
+import { Inter } from 'next/font/google';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -11,6 +12,12 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
 });
 
 export const metadata: Metadata = {
@@ -24,10 +31,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased bg-gray-50`}>
       <body
         suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
       >
         <AuthContextProvider>
           <div className="min-h-screen">

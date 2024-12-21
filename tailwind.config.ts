@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
 
-export default {
+const config: Config = {
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -8,27 +8,15 @@ export default {
   ],
   theme: {
     extend: {
-      colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+      fontFamily: {
+        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
       },
-      typography: {
-        DEFAULT: {
-          css: {
-            maxWidth: '100%',
-            color: 'inherit',
-            a: {
-              color: '#3182ce',
-              '&:hover': {
-                color: '#2c5282',
-              },
-            },
-          },
-        },
+      backgroundImage: {
+        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
+        "gradient-conic":
+          "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
       },
     },
   },
-  plugins: [
-    require('@tailwindcss/typography'),
-  ],
-} satisfies Config;
+  plugins: [require("@tailwindcss/typography")],
+};
